@@ -38,6 +38,22 @@
       </div>
     </div>
 
+    <!-- Add coupon-->
+    <div class="mb-6 p-4 bg-blue-50 rounded">
+      <h3 class="font-semibold mb-2">Añadir cupón descuento:</h3>
+      <div class="flex space-x-2">
+
+        <input
+          v-model="newCouponCode"
+          type="number"
+          placeholder="porcentaje"
+          class="w-20 px-2 py-1 border rounded"
+        />
+        <button @click="addCouponItem" class="px-3 py-1 bg-blue-500 text-white rounded">+</button>
+      </div>
+    </div>
+
+
     <!-- Cart Statistics (Manually Synchronized) -->
     <div class="bg-gray-100 p-4 rounded">
       <h3 class="font-semibold mb-2">Resumen del carrito:</h3>
@@ -52,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 // Reactive data
 const title = ref('Carrito de Compras - Sincronización Manual');
@@ -64,48 +80,33 @@ const items = ref([
 
 const newItemName = ref('');
 const newItemPrice = ref(0);
+const newCouponCode = ref(0);
 
-// PROBLEMA: Estado sincronizado manualmente (anti-patrón)
-// Estas variables se actualizan manualmente en cada operación
-const totalItems = ref(4); // 1 + 2 + 1
-const uniqueItemsCount = ref(3);
-const totalPrice = ref(1124); // 999 + (25*2) + 75
-const averagePrice = ref(374.67); // 1124 / 3
-const hasExpensiveItems = ref(true); // Laptop > 50
-const cartStatus = ref('Carrito con productos');
 
-// Helper function to recalculate all statistics (called after each operation)
-const updateCartStatistics = () => {
-  // Recalcular total de productos
-  totalItems.value = items.value.reduce((sum, item) => sum + item.quantity, 0);
+const totalItems = computed(() => items.value.reduce((sum, item) => sum + item.quantity, 0));
 
-  // Recalcular productos únicos
-  uniqueItemsCount.value = items.value.length;
+const uniqueItemsCount = computed(() => items.value.length);
 
-  // Recalcular precio total
-  totalPrice.value = items.value.reduce((sum, item) => sum + item.price * item.quantity, 0);
+const totalPrice = computed(() => items.value.reduce((sum, item) => sum + item.price * item.quantity, 0));
 
-  // Recalcular precio promedio
-  averagePrice.value = uniqueItemsCount.value > 0 ? totalPrice.value / uniqueItemsCount.value : 0;
+const averagePrice = computed(() => uniqueItemsCount.value > 0 ? totalPrice.value / uniqueItemsCount.value : 0);
 
-  // Verificar productos caros
-  hasExpensiveItems.value = items.value.some((item) => item.price > 50);
-
-  // Estado del carrito
+const hasExpensiveItems = computed(() => items.value.some((item) => item.price > 50));
+const cartStatus = computed(() => {
   if (items.value.length === 0) {
-    cartStatus.value = 'Carrito vacío';
+    return 'Carrito vacío';
   } else if (totalPrice.value > 500) {
-    cartStatus.value = 'Carrito premium';
+    return 'Carrito premium';
   } else {
-    cartStatus.value = 'Carrito con productos';
+    return 'Carrito con productos';
   }
-};
+});
+
 
 const incrementQuantity = (id: number) => {
   const item = items.value.find((item) => item.id === id);
   if (item) {
     item.quantity++;
-    updateCartStatistics(); // ¡Sincronización manual requerida!
   }
 };
 
@@ -113,13 +114,11 @@ const decrementQuantity = (id: number) => {
   const item = items.value.find((item) => item.id === id);
   if (item && item.quantity > 1) {
     item.quantity--;
-    updateCartStatistics(); // ¡Sincronización manual requerida!
   }
 };
 
 const removeItem = (id: number) => {
   items.value = items.value.filter((item) => item.id !== id);
-  updateCartStatistics(); // ¡Sincronización manual requerida!
 };
 
 const addItem = () => {
@@ -133,7 +132,25 @@ const addItem = () => {
     });
     newItemName.value = '';
     newItemPrice.value = 0;
-    updateCartStatistics(); // ¡Sincronización manual requerida!
+  }
+};
+
+const addCouponItem = () => {
+  if (newCouponCode.value > 0) {
+    const discountPercentage = newCouponCode.value;
+    items.value = items.value.map((item) => ({
+      ...item,
+      price: parseFloat((item.price * (1 - discountPercentage / 100)).toFixed(2)),
+    }));
+    const newId = Math.max(...items.value.map((item) => item.id)) + 1;
+    items.value.push({
+      id: newId,
+      name: 'Cupón de descuento',
+      price: newCouponCode.value,
+      quantity: 1,
+    });
+    newCouponCode.value = 0;
+    
   }
 };
 </script>

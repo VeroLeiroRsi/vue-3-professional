@@ -1,6 +1,6 @@
 <template>
-  <div class="message-formatter" :class="containerClass" :style="containerStyle">
-    <h2>{{ title }}</h2>
+  <div class="message-formatter" :class="containerClass">
+    <h2>{{ props.title }}</h2>
 
     <!-- Input with template ref -->
     <div class="input-section">
@@ -19,7 +19,7 @@
     <div class="output-section">
       <h3>Mensaje formateado:</h3>
       <p class="formatted-message" :class="messageClass">
-        {{ message | capitalize | addPrefix }}
+        {{ formattedMessage }}
       </p>
       <p class="char-count" :style="{ color: textColor }">
         Caracteres: {{ message.length }}
@@ -64,137 +64,72 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'MessageFormatter',
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 
-  props: {
-    title: {
-      type: String,
-      default: 'Formateador de Mensajes - Vue 2',
-    },
-  },
+const props = defineProps<{
+  title?: string;
+}>();
 
-  data() {
-    return {
-      message: '',
-      isDarkMode: false,
-      fontSize: 'medium',
-      lastSentMessage: '',
-      charCountColor: '#333',
-    };
-  },
+const emit = defineEmits<{
+  (e: 'message-sent', message: string): void;
+}>();
 
-  computed: {
-    // Manual class binding
-    containerClass() {
-      return {
-        'dark-mode': this.isDarkMode,
-        'light-mode': !this.isDarkMode,
-      };
-    },
+const message = ref('');
+const isDarkMode = ref(false);
+const fontSize = ref('medium');
+const lastSentMessage = ref('');
+const messageInput = ref<HTMLInputElement | null>(null);
 
-    // Manual style binding
-    containerStyle() {
-      return {
-        fontSize: this.fontSizeValue,
-        transition: 'all 0.3s ease',
-      };
-    },
 
-    messageClass() {
-      return {
-        'has-content': this.message.length > 0,
-        'long-message': this.message.length > 20,
-      };
-    },
 
-    fontSizeValue() {
-      const sizes = {
-        small: '14px',
-        medium: '16px',
-        large: '18px',
-      };
-      return sizes[this.fontSize];
-    },
+const containerClass = computed(() => (isDarkMode.value ? 'dark-mode' : 'light-mode'));
+const textColor = computed(() => (isDarkMode.value ? '#ecf0f1' : '#333333'));
+const messageClass = computed(() => {
+  return {
+    'has-content': message.value.trim().length > 0,
+    'long-message': message.value.length > 50,
+  };
+});
+const formattedMessage = computed(() => {
+  let msg = message.value.trim();
+  if (msg.length === 0) return 'No hay mensaje';
 
-    textColor() {
-      return this.isDarkMode ? '#fff' : this.charCountColor;
-    },
-  },
+  // Capitalize first letter
+  msg = msg.charAt(0).toUpperCase() + msg.slice(1);
 
-  watch: {
-    // Watcher for message changes
-    message(newMessage) {
-      console.log('💬 Message changed:', newMessage);
+  // Add exclamation if long message
+  if (msg.length > 50) {
+    msg += ' !!!';
+  }
 
-      // Update character count color based on length
-      if (newMessage.length > 50) {
-        this.charCountColor = '#e74c3c';
-      } else if (newMessage.length > 20) {
-        this.charCountColor = '#f39c12';
-      } else {
-        this.charCountColor = '#27ae60';
-      }
-    },
+  return msg;
+});
 
-    // Watcher for theme changes
-    isDarkMode(newValue) {
-      console.log('🌓 Theme changed to:', newValue ? 'dark' : 'light');
-    },
+const fontSizeValue = computed(() => {
+  switch (fontSize.value) {
+    case 'small':
+      return '14px';
+    case 'large':
+      return '20px';
+    case 'medium':
+    default:
+      return '16px';
+  }
+}); 
 
-    // Watcher for font size
-    fontSize(newSize) {
-      console.log('📝 Font size changed to:', newSize);
-    },
-  },
-
-  filters: {
-    // Filter to capitalize first letter
-    capitalize(value) {
-      if (!value) return '';
-      return value.charAt(0).toUpperCase() + value.slice(1);
-    },
-
-    // Filter to add prefix
-    addPrefix(value) {
-      if (!value) return '';
-      return `📝 ${value}`;
-    },
-  },
-
-  methods: {
-    // Template ref usage
-    focusInput() {
-      this.$refs.messageInput.focus();
-      console.log('🎯 Input focused using template ref');
-    },
-
-    // Method that emits event
-    sendMessage() {
-      if (this.message.trim()) {
-        const formattedMessage = this.$options.filters.addPrefix(
-          this.$options.filters.capitalize(this.message)
-        );
-
-        // Update last sent message
-        this.lastSentMessage = formattedMessage;
-
-        // Emit event to parent
-        this.$emit('message-sent', {
-          original: this.message,
-          formatted: formattedMessage,
-          timestamp: new Date().toISOString(),
-        });
-
-        console.log('📤 Message sent:', formattedMessage);
-
-        // Clear message after sending
-        this.message = '';
-      }
-    },
-  },
+const focusInput = () => {
+  messageInput.value?.focus();
 };
+const sendMessage = () => {
+  if (message.value.trim()) {
+    lastSentMessage.value = message.value.trim();
+    emit('message-sent', lastSentMessage.value);
+    message.value = '';
+  }
+};      
+
+
 </script>
 
 <style scoped>
@@ -204,6 +139,8 @@ export default {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  font-size: v-bind(fontSizeValue);
+  transition: all 0.3s ease;
 }
 
 .light-mode {
@@ -262,6 +199,7 @@ export default {
 .char-count {
   font-size: 0.9em;
   margin-top: 5px;
+  color: v-bind(textColor);
 }
 
 .controls {
